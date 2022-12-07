@@ -421,6 +421,8 @@ class ServerlessS3Local {
         }
       };
 
+      const providerS3 = this.serverless.service.provider.s3 || {};
+
       functionDefinition.events.forEach((event) => {
         const s3 = (event && (event.s3 || event.existingS3)) || undefined;
         if (!s3) {
@@ -439,6 +441,10 @@ class ServerlessS3Local {
           handlerBucketName = s3;
           s3Events = event.events || [event.event || "*"];
           s3Rules = event.rules || [];
+        }
+
+        if (providerS3[handlerBucketName]) {
+          handlerBucketName = providerS3[handlerBucketName].name || handlerBucketName;
         }
 
         const bucketResource = this.getResourceForBucket(handlerBucketName);
@@ -566,6 +572,8 @@ class ServerlessS3Local {
       });
     }
 
+    const providerS3 = this.serverless.service.provider.s3 || {};
+
     const eventSourceBuckets = Object.keys(this.service.functions).reduce(
       (acc, key) => {
         const serviceFunction = this.service.getFunction(key);
@@ -577,7 +585,19 @@ class ServerlessS3Local {
                 return null;
               }
 
-              return typeof s3 === "object" ? s3.bucket : s3;
+              let handlerBucketName;
+
+              if (typeof s3 === "object") {
+                handlerBucketName = s3.bucket;
+              } else {
+                handlerBucketName = s3;
+              }
+
+              if (providerS3[handlerBucketName]) {
+                handlerBucketName = providerS3[handlerBucketName].name || handlerBucketName;
+              }
+
+              return handlerBucketName;
             })
             .filter((bucket) => bucket !== null)
         );
