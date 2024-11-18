@@ -1,11 +1,10 @@
 const S3rver = require("s3rver");
 const fs = require("fs-extra"); // Using fs-extra to ensure destination directory exist
-const AWS = require("aws-sdk");
+const S3 = require("aws-sdk/clients/s3");
 const shell = require("shelljs");
 const path = require("path");
 const { fromEvent } = require("rxjs");
 const { map, mergeMap } = require("rxjs/operators");
-const { default: Lambda } = require("serverless-offline/dist/lambda/");
 
 const defaultOptions = {
   port: 4569,
@@ -266,35 +265,39 @@ class ServerlessS3Local {
         cert = fs.readFileSync(path.resolve(httpsProtocol, 'cert.pem'), 'ascii');
         key = fs.readFileSync(path.resolve(httpsProtocol, 'key.pem'), 'ascii');
       }
-      this.client = new S3rver({
-        address,
-        port,
-        silent: this.options.silent,
-        directory,
-        allowMismatchedSignatures,
-        configureBuckets,
-        serviceEndpoint,
-        cert,
-        key,
-        vhostBuckets,
-      }).run(
-        (err, { port: bindedPort, family, address: bindedAddress } = {}) => {
-          if (err) {
-            this.serverless.cli.log("Error occurred while starting S3 local.");
-            reject(err);
-            return;
+
+      import('serverless-offline/lambda').then(module => {
+        this.lambdaHandler = module.default;
+        this.client = new S3rver({
+          address,
+          port,
+          silent: this.options.silent,
+          directory,
+          allowMismatchedSignatures,
+          configureBuckets,
+          serviceEndpoint,
+          cert,
+          key,
+          vhostBuckets,
+        }).run(
+          (err, { port: bindedPort, family, address: bindedAddress } = {}) => {
+            if (err) {
+              this.serverless.cli.log("Error occurred while starting S3 local.");
+              reject(err);
+              return;
+            }
+
+            this.options.port = bindedPort;
+            this.serverless.cli.log(
+              `S3 local started ( port:${bindedPort}, family: ${family}, address: ${bindedAddress} )`
+            );
+
+            resolve();
           }
-
-          this.options.port = bindedPort;
-          this.serverless.cli.log(
-            `S3 local started ( port:${bindedPort}, family: ${family}, address: ${bindedAddress} )`
-          );
-
-          resolve();
-        }
-      );
-      this.serverless.cli.log("starting handler");
-      this.subscribe();
+        );
+        this.serverless.cli.log("starting handler");
+        this.subscribe();
+      });
     });
   }
 
@@ -347,11 +350,9 @@ class ServerlessS3Local {
   }
 
   getClient() {
-    return new AWS.S3({
+    return new S3({
       s3ForcePathStyle: true,
-      endpoint: new AWS.Endpoint(
-        `http://${this.options.host}:${this.options.port}`
-      ),
+      endpoint: `http://${this.options.host}:${this.options.port}`,
       accessKeyId: this.options.accessKeyId,
       secretAccessKey: this.options.secretAccessKey,
     });
@@ -406,12 +407,12 @@ class ServerlessS3Local {
       return {};
     }
 
-    const lambda = new Lambda(this.serverless, this.options);
+    const lambda = new this.lambdaHandler(this.serverless, this.options);
     const eventHandlers = [];
 
     this.service.getAllFunctions().forEach((functionKey) => {
       const functionDefinition = this.service.getFunction(functionKey);
-      lambda._create(functionKey, functionDefinition); // eslint-disable-line no-underscore-dangle
+      lambda.create([{functionKey, functionDefinition}]); // eslint-disable-line no-underscore-dangle
 
       const func = (s3Event) => {
         const baseEnvironment = {
