@@ -4,9 +4,7 @@
   "description": "Serverless s3 local plugin",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint './**/*.js'",
-    "lint:fix": "eslint --fix './**/*.js'"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
@@ -24,16 +22,11 @@
   },
   "homepage": "https://github.com/ar90n/serverless-s3-local#readme",
   "dependencies": {
+    "@20minutes/s3rver": "^4.0.3",
     "aws-sdk": "^2.738.0",
     "fs-extra": "^9.0.0",
     "rxjs": "^6.6.2",
     "rxjs-compat": "^6.6.2",
-    "s3rver": "^3.6.1",
     "shelljs": "^0.8.3"
-  },
-  "devDependencies": {
-    "eslint": "^7.0.0",
-    "eslint-config-airbnb-base": "^14.2.0",
-    "eslint-plugin-import": "^2.22.0"
   }
 }
